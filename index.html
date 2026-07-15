@@ -266,6 +266,10 @@ table.info td:last-child{text-align:right; color:var(--text-primary);}
   <div class="view" id="view-settings">
     <div class="title-row"><h1>設定</h1></div>
     <div class="card">
+      <p class="label">アプリ</p>
+      <button class="btn-block" onclick="location.reload()">ページを更新</button>
+    </div>
+    <div class="card">
       <p class="label">バックアップ</p>
       <p id="settings-last-backup" style="font-size:13px; color:var(--text-secondary); margin:0 0 14px;"></p>
       <button class="btn-block" style="margin-bottom:10px;" onclick="exportBackup()">バックアップ（ダウンロード）</button>
