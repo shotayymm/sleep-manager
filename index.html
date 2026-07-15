@@ -11,8 +11,7 @@
   --border:rgba(42,120,214,0.16); --border-strong:rgba(11,11,11,0.22);
   --label-tint:#5c7695;
   --accent:#2a78d6; --bg-accent:#e6f1fb; --text-accent:#0c447c;
-  --warning:#eda100; --bg-warning:#faeeda; --text-warning:#854f0b;
-  --danger:#e34948; --violet:#4a3aa7; --magenta:#e87ba4; --orange:#eb6834; --green:#1baf7a;
+  --text-warning:#854f0b;
   --radius:10px;
 }
 @media (prefers-color-scheme: dark){
@@ -21,18 +20,18 @@
     --text-primary:#f5f5f3; --text-secondary:#c3c2b7; --text-muted:#8f8e88;
     --border:rgba(143,192,240,0.20); --border-strong:rgba(255,255,255,0.26);
     --bg-accent:#0c2a45; --text-accent:#8fc0f0;
-    --bg-warning:#3a2c08; --text-warning:#f0c060;
+    --text-warning:#f0c060;
     --label-tint:#9fb8d1;
   }
 }
 *{box-sizing:border-box;}
-html, body{ height:100%; overflow:hidden; position:fixed; width:100%; }
+html, body{ height:100%; height:100dvh; overflow:hidden; position:fixed; width:100%; }
 body{
   margin:0; background:var(--surface-0); color:var(--text-primary);
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
   -webkit-tap-highlight-color:transparent;
 }
-#app{max-width:420px; height:100%; margin:0 auto; padding:16px 16px 8px; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box;}
+#app{max-width:420px; height:100%; height:100dvh; margin:0 auto; padding:16px 16px 8px; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box;}
 .view{display:none;}
 .view.active{display:block;}
 .card{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin-bottom:0;}
@@ -73,7 +72,6 @@ button:active{transform:scale(0.98);}
 .dots{display:flex; gap:4px; margin-left:auto;}
 .dots span{width:16px; height:4px; border-radius:2px; background:var(--border);}
 .dots span.on{background:var(--accent);}
-.chip-row{display:flex; align-items:center; gap:8px; padding:8px 0; cursor:pointer;}
 .checkline{display:flex; align-items:center; gap:8px; padding:6px 0; cursor:pointer; font-size:14px;}
 .tl-grid{display:grid; grid-template-columns:32px 1fr 16px 1fr; align-items:baseline;}
 .tl-head span{font-size:11px; color:var(--text-muted);}
@@ -93,9 +91,6 @@ button:active{transform:scale(0.98);}
 .nav-item{display:flex; flex-direction:column; align-items:center; gap:2px; font-size:11px; color:var(--text-secondary); cursor:pointer;}
 .nav-item.active{color:var(--accent);}
 .nav-icon{width:20px; height:20px;}
-.badge{font-size:12px; font-weight:500; padding:5px 12px; border-radius:8px;}
-.badge-warn{background:var(--bg-warning); color:var(--text-warning);}
-.badge-ok{background:var(--bg-accent); color:var(--text-accent);}
 .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px;}
 .modal{background:var(--surface-2); border-radius:16px; padding:20px; width:280px; max-width:100%;}
 .modal-title{font-size:14px; font-weight:500; text-align:center; margin:0 0 14px;}
@@ -448,7 +443,7 @@ function renderPhase4(){
   document.getElementById('f-comment').oninput=e=>draft.comment=e.target.value;
 }
 
-// Lets the user pick which master routines apply to tomorrow morning (order = master list order).
+// Adds a new routine (name + ordered steps) or edits/reorders/deletes an existing one.
 // routine=null to add a new one, or an existing routine object to edit/delete/reorder it.
 function openRoutineEditor(routine){
   const root=document.getElementById('modal-root');
@@ -948,7 +943,7 @@ function openSuppDetail(){
   renderHomeSupp('daytime', 'supp-detail-daytime');
   renderHomeSupp('night', 'supp-detail-night');
 }
-function renderHomePrevRoutine(){
+function prevRoutineItems(){
   const prevRec = DB.records[addDays(draftDate,-1)];
   const items=[];
   if(prevRec){
@@ -956,17 +951,15 @@ function renderHomePrevRoutine(){
     if(prevRec.fallingAsleep.fasciaRelease) items.push('筋膜リリース');
     items.push(...prevRec.supplements.nightTaken);
   }
+  return items;
+}
+function renderHomePrevRoutine(){
+  const items = prevRoutineItems();
   document.getElementById('home-prev-routine-link').textContent =
     '前日の寝る前ルーティン：'+(items.length ? items.join('、') : '記録なし')+' ›';
 }
 function openPrevRoutineDetail(){
-  const prevRec = DB.records[addDays(draftDate,-1)];
-  const items=[];
-  if(prevRec){
-    if(prevRec.fallingAsleep.stretch) items.push('ストレッチ');
-    if(prevRec.fallingAsleep.fasciaRelease) items.push('筋膜リリース');
-    items.push(...prevRec.supplements.nightTaken);
-  }
+  const items = prevRoutineItems();
   const root=document.getElementById('modal-root');
   root.innerHTML =
     '<div class="modal-overlay"><div class="modal">'+
@@ -976,7 +969,6 @@ function openPrevRoutineDetail(){
     '</div></div>';
 }
 
-// True only when every planned routine has all of its steps checked off.
 // Shows the planned routine's own name once one exists, otherwise the generic label.
 function homeRoutineLabel(){
   const names = draft.wakingBehavior.routinePlanIds
@@ -984,6 +976,7 @@ function homeRoutineLabel(){
     .filter(Boolean);
   return names.length ? names.join('・') : '起床ルーティン';
 }
+// True only when every planned routine has all of its steps checked off.
 function isRoutineFullyDone(){
   const planIds = draft.wakingBehavior.routinePlanIds;
   if(planIds.length===0) return false;
@@ -994,8 +987,6 @@ function isRoutineFullyDone(){
     return progress >= r.steps.length;
   });
 }
-// Long-press target: same sequential step-checking UI as the wizard's phase 1,
-// shown in a modal so it can be reached straight from the home screen.
 // Tap target: just today's step checklist for the planned routine(s).
 function openRoutineChecklist(){
   const root=document.getElementById('modal-root');
@@ -1259,8 +1250,7 @@ function renderHome(){
   document.getElementById('home-supp-link').textContent = suppSummaryText();
   renderHomePrevRoutine();
 
-  document.getElementById('home-backup-status').textContent =
-    DB.lastBackupDate ? ('最終バックアップ：'+daysSince(DB.lastBackupDate)+'日前') : '最終バックアップ：未実施';
+  document.getElementById('home-backup-status').textContent = backupStatusText();
 }
 
 /* ---------- history ---------- */
@@ -1380,6 +1370,9 @@ function daysSince(dateStr){
   const d2 = new Date(todayStr()+'T00:00:00');
   return Math.round((d2-d1)/(1000*60*60*24));
 }
+function backupStatusText(){
+  return DB.lastBackupDate ? ('最終バックアップ：'+daysSince(DB.lastBackupDate)+'日前') : '最終バックアップ：未実施';
+}
 function exportBackup(){
   const dataStr = JSON.stringify(DB, null, 2);
   const blob = new Blob([dataStr], {type:'application/json'});
@@ -1425,8 +1418,7 @@ function cancelImport(){
   renderSettings();
 }
 function renderSettings(){
-  document.getElementById('settings-last-backup').textContent =
-    DB.lastBackupDate ? ('最終バックアップ：'+daysSince(DB.lastBackupDate)+'日前') : '最終バックアップ：未実施';
+  document.getElementById('settings-last-backup').textContent = backupStatusText();
   const msgEl = document.getElementById('settings-import-msg');
   if(pendingImportData){
     msgEl.innerHTML = '<span style="color:var(--text-warning);">現在のデータを上書きします。よろしいですか？</span><br>'+
