@@ -26,10 +26,12 @@
   }
 }
 *{box-sizing:border-box;}
+html{ overscroll-behavior-y:contain; }
 body{
   margin:0; background:var(--surface-0); color:var(--text-primary);
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
   -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:contain;
 }
 #app{max-width:420px; margin:0 auto; padding:16px 16px 8px;}
 .view{display:none;}
@@ -67,7 +69,7 @@ button:active{transform:scale(0.98);}
 .wizard-scroller{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none;}
 .wizard-scroller::-webkit-scrollbar{display:none;}
 .wizard-page{flex:0 0 100%; max-width:100%; scroll-snap-align:start; box-sizing:border-box; padding-bottom:200px;}
-#view-home, #view-history, #view-detail, #view-settings{ padding-bottom:70px; }
+#view-home, #view-history, #view-detail, #view-settings{ padding-bottom:82px; }
 .stepper .lbl{font-size:12px; color:var(--text-secondary);}
 .dots{display:flex; gap:4px; margin-left:auto;}
 .dots span{width:16px; height:4px; border-radius:2px; background:var(--border);}
@@ -87,7 +89,7 @@ button:active{transform:scale(0.98);}
   max-width:420px; margin:0 auto; box-sizing:border-box;
   display:flex; justify-content:space-around;
   background:var(--surface-0); border-top:1px solid var(--border);
-  padding:8px 16px calc(8px + env(safe-area-inset-bottom));
+  padding:8px 16px calc(20px + env(safe-area-inset-bottom));
 }
 .nav-item{display:flex; flex-direction:column; align-items:center; gap:2px; font-size:11px; color:var(--text-secondary); cursor:pointer;}
 .nav-item.active{color:var(--accent);}
@@ -170,7 +172,7 @@ table.info td:last-child{text-align:right; color:var(--text-primary);}
       <p id="home-prev-routine-link" onclick="openPrevRoutineDetail()" style="cursor:pointer; font-size:12px; color:var(--text-accent); margin:0;"></p>
     </div>
 
-    <button class="btn-block btn-primary" style="margin-top:6px; margin-bottom:8px;" onclick="startWizard(draftDate)">詳しく記録する（全項目）</button>
+    <button class="btn-block btn-primary" style="margin-top:4px; margin-bottom:4px;" onclick="startWizard(draftDate)">詳しく記録する（全項目）</button>
     <p id="home-backup-status" style="text-align:center; font-size:11px; color:var(--text-muted); margin:0;"></p>
   </div>
 
