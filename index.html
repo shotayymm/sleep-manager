@@ -137,21 +137,17 @@ table.info td:last-child{text-align:right; color:var(--text-primary);}
           <label class="checkline" style="flex:1;"><input type="checkbox" id="home-midwake"><span>中途覚醒</span></label>
           <label class="checkline" style="flex:1;"><input type="checkbox" id="home-secondsleep"><span>二度寝</span></label>
         </div>
-        <div class="row" onclick="openAlertnessPicker()" style="cursor:pointer; border-top:1px solid var(--border); padding:8px 0;">
-          <span style="font-size:14px;">覚醒スコア</span>
-          <span id="home-alertness-val" class="blank" style="font-size:13px;"></span>
+        <div style="display:flex; align-items:center; border-top:1px solid var(--border); padding:6px 0; gap:4px;">
+          <span style="font-size:12px; color:var(--text-muted); flex-shrink:0;">起床</span>
+          <span id="home-alarm-val" onclick="openAlarmPicker()" style="cursor:pointer; font-size:13px; flex:1; padding:6px 4px;"></span>
+          <span style="font-size:12px; color:var(--text-muted); flex-shrink:0;">覚醒度</span>
+          <span id="home-alertness-val" onclick="openAlertnessPicker()" style="cursor:pointer; font-size:13px; flex:1; text-align:right; padding:6px 4px;"></span>
         </div>
-        <div style="display:flex; border-top:1px solid var(--border); padding:8px 0; gap:8px;">
-          <div id="home-routine-row" style="flex:1;">
-            <label class="checkline" style="padding:0; pointer-events:none;">
-              <input type="checkbox" id="home-routine-check" disabled>
-              <span>起床ルーティン</span>
-            </label>
-          </div>
-          <div onclick="openAlarmPicker()" style="flex:1; cursor:pointer;">
-            <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">アラーム</div>
-            <div id="home-alarm-val" style="font-size:13px;"></div>
-          </div>
+        <div id="home-routine-row" style="border-top:1px solid var(--border); padding:8px 0;">
+          <label class="checkline" style="padding:0; pointer-events:none;">
+            <input type="checkbox" id="home-routine-check" disabled>
+            <span id="home-routine-label">起床ルーティン</span>
+          </label>
         </div>
       </div>
     </div>
@@ -161,8 +157,10 @@ table.info td:last-child{text-align:right; color:var(--text-primary);}
       <div id="home-daytime-block"></div>
       <div style="border-top:1px solid var(--border); margin:8px 0;"></div>
       <div class="toggle2" style="margin-bottom:8px;">
-        <button id="home-stretch" onclick="homeToggleFallAsleep('stretch')">ストレッチ</button>
-        <button id="home-fascia" onclick="homeToggleFallAsleep('fasciaRelease')">筋膜リリース</button>
+        <button id="home-exercise" onclick="homeToggleExercise()" style="font-size:12px;">運動</button>
+        <button id="home-alcohol" onclick="homeToggleAlcohol()" style="font-size:12px;">飲酒</button>
+        <button id="home-stretch" onclick="homeToggleFallAsleep('stretch')" style="font-size:12px;">ストレッチ</button>
+        <button id="home-fascia" onclick="homeToggleFallAsleep('fasciaRelease')" style="font-size:12px;">筋膜リリース</button>
       </div>
       <p id="home-supp-link" onclick="openSuppDetail()" style="cursor:pointer; font-size:12px; color:var(--text-accent); margin:0;"></p>
     </div>
@@ -400,7 +398,7 @@ function toggleBlock(kind){
 function setAlcohol(val){
   draft.fallingAsleep.alcohol.consumed = val;
   renderPhase3();
-  if(val) openBeerPicker();
+  if(val) openBeerPicker(()=>{ draft.fallingAsleep.alcohol.consumed=false; renderPhase3(); renderHome(); });
 }
 function setExercise(val){
   draft.exercise.done = val;
@@ -470,7 +468,7 @@ function openRoutineEditor(routine){
       '<button class="btn-block" style="margin-bottom:12px;" onclick="deleteRoutine(\''+routine.id+'\')">削除</button>'
     )+
     '<div style="display:flex; gap:8px;">'+
-    '<button style="flex:1;" onclick="closeModal(); openHomeRoutineDetail();">キャンセル</button>'+
+    '<button style="flex:1;" onclick="closeModal(); openRoutineSelection();">キャンセル</button>'+
     '<button style="flex:1;" class="btn-primary" id="rt-save">'+(isNew?'追加する':'保存する')+'</button>'+
     '</div></div></div>';
   document.getElementById('rt-save').onclick=()=>{
@@ -479,7 +477,7 @@ function openRoutineEditor(routine){
     if(!name || steps.length===0) return;
     if(isNew){ DB.routineMaster.push({id:'r'+Date.now(), name, steps}); }
     else { routine.name=name; routine.steps=steps; }
-    saveDB(); closeModal(); openHomeRoutineDetail();
+    saveDB(); closeModal(); openRoutineSelection();
   };
 }
 // Reorders which routine comes first in the selection list (step order within a
@@ -490,14 +488,14 @@ function moveRoutine(id, dir){
   const j=i+dir;
   if(j<0 || j>=arr.length) return;
   [arr[i],arr[j]]=[arr[j],arr[i]];
-  saveDB(); closeModal(); openHomeRoutineDetail();
+  saveDB(); closeModal(); openRoutineSelection();
 }
 function deleteRoutine(id){
   DB.routineMaster = DB.routineMaster.filter(r=>r.id!==id);
   draft.wakingBehavior.routinePlanIds = draft.wakingBehavior.routinePlanIds.filter(x=>x!==id);
   delete draft.wakingBehavior.routineProgress[id];
   saveCurrentDraft();
-  closeModal(); openHomeRoutineDetail();
+  closeModal(); openRoutineSelection();
 }
 
 function saveRecord(){
@@ -608,21 +606,26 @@ function openRollPicker(opts){
     '<p class="modal-title">'+opts.title+'</p>'+
     buildWheel('roll-wheel', values)+
     '<div style="display:flex; gap:8px;">'+
-    '<button style="flex:1;" onclick="closeModal()">キャンセル</button>'+
+    '<button style="flex:1;" id="picker-cancel">キャンセル</button>'+
     '<button style="flex:1;" class="btn-primary" id="picker-ok">確定</button>'+
     '</div></div></div>';
   initWheelScroll('roll-wheel', initIdx);
+  document.getElementById('picker-cancel').onclick=()=>{
+    closeModal();
+    if(opts.onCancel) opts.onCancel();
+  };
   document.getElementById('picker-ok').onclick=()=>{
     const i = readWheelIndex('roll-wheel', count);
     closeModal();
     opts.onConfirm(toValue(i));
   };
 }
-function openBeerPicker(){
+function openBeerPicker(onCancel){
   openRollPicker({
     title:'飲酒（ビール本数）', min:0, max:7, initial:Math.min(draft.fallingAsleep.alcohol.beerCount,7),
     format:v=>(v>=7?'7+':v),
-    onConfirm:v=>{ draft.fallingAsleep.alcohol.beerCount=v; renderPhase3(); }
+    onConfirm:v=>{ draft.fallingAsleep.alcohol.beerCount=v; draft.fallingAsleep.alcohol.consumed=true; saveCurrentDraft(); renderPhase3(); renderHome(); },
+    onCancel:onCancel
   });
 }
 function openCarbsPicker(){
@@ -647,10 +650,10 @@ function openExerciseModal(){
   document.getElementById('ex-ok').onclick=()=>{
     const chosen=[...root.querySelectorAll('input[data-t]')].filter(c=>c.checked).map(c=>c.dataset.t);
     draft.exercise.types=chosen; draft.exercise.done = chosen.length>0;
-    closeModal(); renderPhase3();
+    closeModal(); renderPhase3(); renderHome();
   };
 }
-function cancelExercise(){ if(draft.exercise.types.length===0) draft.exercise.done=false; closeModal(); renderPhase3(); }
+function cancelExercise(){ if(draft.exercise.types.length===0) draft.exercise.done=false; closeModal(); renderPhase3(); renderHome(); }
 
 function openSupplementAdd(){
   const root=document.getElementById('modal-root');
@@ -815,7 +818,7 @@ function openAlertnessPicker(){
   const root=document.getElementById('modal-root');
   root.innerHTML =
     '<div class="modal-overlay"><div class="modal">'+
-    '<p class="modal-title">起床時の覚醒スコア</p>'+
+    '<p class="modal-title">覚醒度</p>'+
     ALERTNESS_LABELS.slice(1).map((lab,idx)=>{
       const v=idx+1;
       const on = draft.wakingBehavior.alertnessLevel===v;
@@ -878,6 +881,34 @@ function homeToggleFallAsleep(key){
   draft.fallingAsleep[key] = !draft.fallingAsleep[key];
   saveCurrentDraft();
   document.getElementById(key==='stretch'?'home-stretch':'home-fascia').classList.toggle('on', draft.fallingAsleep[key]);
+}
+function homeToggleExercise(){
+  draft.exercise.done = !draft.exercise.done;
+  if(!draft.exercise.done) draft.exercise.types=[];
+  saveCurrentDraft();
+  renderHomeExerciseAlcohol();
+  if(draft.exercise.done) openExerciseModal();
+}
+function homeToggleAlcohol(){
+  draft.fallingAsleep.alcohol.consumed = !draft.fallingAsleep.alcohol.consumed;
+  saveCurrentDraft();
+  renderHomeExerciseAlcohol();
+  if(draft.fallingAsleep.alcohol.consumed){
+    openBeerPicker(()=>{
+      draft.fallingAsleep.alcohol.consumed=false;
+      saveCurrentDraft();
+      renderHomeExerciseAlcohol();
+    });
+  }
+}
+function renderHomeExerciseAlcohol(){
+  const ex=document.getElementById('home-exercise');
+  ex.classList.toggle('on', draft.exercise.done);
+  ex.textContent = draft.exercise.done && draft.exercise.types.length ? ('運動・'+draft.exercise.types.length+'種') : '運動';
+  const alc=document.getElementById('home-alcohol');
+  const bc=draft.fallingAsleep.alcohol.beerCount;
+  alc.classList.toggle('on', draft.fallingAsleep.alcohol.consumed);
+  alc.textContent = draft.fallingAsleep.alcohol.consumed ? ('飲酒・'+(bc>=7?'7+':bc)+'本') : '飲酒';
 }
 function renderHomeSupp(kind, targetId){
   const takenKey = kind==='daytime' ? 'daytimeTaken' : 'nightTaken';
@@ -946,6 +977,13 @@ function openPrevRoutineDetail(){
 }
 
 // True only when every planned routine has all of its steps checked off.
+// Shows the planned routine's own name once one exists, otherwise the generic label.
+function homeRoutineLabel(){
+  const names = draft.wakingBehavior.routinePlanIds
+    .map(id => { const r=DB.routineMaster.find(x=>x.id===id); return r?r.name:null; })
+    .filter(Boolean);
+  return names.length ? names.join('・') : '起床ルーティン';
+}
 function isRoutineFullyDone(){
   const planIds = draft.wakingBehavior.routinePlanIds;
   if(planIds.length===0) return false;
@@ -958,10 +996,10 @@ function isRoutineFullyDone(){
 }
 // Long-press target: same sequential step-checking UI as the wizard's phase 1,
 // shown in a modal so it can be reached straight from the home screen.
-function openHomeRoutineDetail(){
+// Tap target: just today's step checklist for the planned routine(s).
+function openRoutineChecklist(){
   const root=document.getElementById('modal-root');
   const planIds = draft.wakingBehavior.routinePlanIds;
-
   let checklist = '';
   if(planIds.length===0){
     checklist = '<p style="font-size:13px; color:var(--text-muted); margin:0 0 14px;">今日予定されているルーティンはありません</p>';
@@ -980,23 +1018,29 @@ function openHomeRoutineDetail(){
       });
     });
   }
-
-  const select = DB.routineMaster.length===0
-    ? '<p style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">まだルーティンが登録されていません</p>'
-    : DB.routineMaster.map(r=>'<label class="checkline" data-routine-row="'+r.id+'"><input type="checkbox" '+(planIds.includes(r.id)?'checked':'')+' onchange="toggleHomeRoutinePlan(\''+r.id+'\', this.checked)"><span>'+r.name+'</span></label>').join('');
-
   root.innerHTML =
     '<div class="modal-overlay"><div class="modal" style="max-height:80vh; overflow-y:auto;">'+
     '<p class="modal-title">起床ルーティン</p>'+
     checklist+
-    '<div style="border-top:1px solid var(--border); margin:14px 0;"></div>'+
-    '<p class="label">今日使うルーティン</p>'+
+    '<button class="btn-block" style="margin-top:12px;" onclick="closeModal(); renderHome();">閉じる</button>'+
+    '</div></div>';
+}
+// Long-press target: choose which routines apply today, add new ones, or
+// long-press one of them here to edit/reorder/delete it.
+function openRoutineSelection(){
+  const root=document.getElementById('modal-root');
+  const planIds = draft.wakingBehavior.routinePlanIds;
+  const select = DB.routineMaster.length===0
+    ? '<p style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">まだルーティンが登録されていません</p>'
+    : DB.routineMaster.map(r=>'<label class="checkline" data-routine-row="'+r.id+'"><input type="checkbox" '+(planIds.includes(r.id)?'checked':'')+' onchange="toggleHomeRoutinePlan(\''+r.id+'\', this.checked)"><span>'+r.name+'</span></label>').join('');
+  root.innerHTML =
+    '<div class="modal-overlay"><div class="modal" style="max-height:80vh; overflow-y:auto;">'+
+    '<p class="modal-title">使うルーティンの選択</p>'+
     '<p style="font-size:11px; color:var(--text-muted); margin:0 0 8px;">長押しで編集・並び替え・削除</p>'+
     select+
     '<button type="button" class="btn-block" style="margin-top:8px; margin-bottom:14px;" onclick="openRoutineEditor(null)">＋ ルーティンを追加</button>'+
     '<button class="btn-block" onclick="closeModal(); renderHome();">閉じる</button>'+
     '</div></div>';
-
   DB.routineMaster.forEach(r=>{
     const row = root.querySelector('[data-routine-row="'+r.id+'"]');
     if(row) attachLongPress(row, ()=>openRoutineEditor(r));
@@ -1007,12 +1051,12 @@ function toggleHomeRoutinePlan(id, checked){
   if(checked){ if(!ids.includes(id)) ids.push(id); }
   else { draft.wakingBehavior.routinePlanIds = ids.filter(x=>x!==id); delete draft.wakingBehavior.routineProgress[id]; }
   saveCurrentDraft();
-  openHomeRoutineDetail();
+  openRoutineSelection();
 }
 function setHomeRoutineStep(id, i, checked){
   draft.wakingBehavior.routineProgress[id] = checked ? i+1 : i;
   saveCurrentDraft();
-  openHomeRoutineDetail();
+  openRoutineChecklist();
 }
 
 function presetName(id){ const p=DB.presets.find(x=>x.id===id); return p?p.name:''; }
@@ -1190,6 +1234,7 @@ function renderHome(){
   document.getElementById('home-secondsleep').onchange=e=>{ draft.wakingBehavior.secondSleep=e.target.checked; saveCurrentDraft(); };
   document.getElementById('home-alertness-val').textContent = ALERTNESS_LABELS[draft.wakingBehavior.alertnessLevel] || '－ 選択 －';
   document.getElementById('home-routine-check').checked = isRoutineFullyDone();
+  document.getElementById('home-routine-label').textContent = homeRoutineLabel();
   document.getElementById('home-alarm-val').textContent = draft.wakingBehavior.alarmType;
 
   const periods=[['morning','午前'],['afternoon','午後'],['evening','夕方以降']];
@@ -1201,7 +1246,7 @@ function renderHome(){
     ).join('')+'</div>';
   const sleepinessRow = '<div class="tl-row"><span class="tag">眠気</span>'+
     periods.map(([key])=>
-      '<span onclick="openDaytimeCell(\'sleepiness\',\''+key+'\')" style="cursor:pointer;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+SLEEPINESS_LABELS[draft.daytime[key].sleepiness]+'</span>'
+      '<span onclick="openDaytimeCell(\'sleepiness\',\''+key+'\')" style="cursor:pointer; font-size:11px; line-height:1.3; text-align:center;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+SLEEPINESS_LABELS[draft.daytime[key].sleepiness]+'</span>'
     ).join('')+'</div>';
   document.getElementById('home-daytime-block').innerHTML =
     '<div class="tl-grid" style="grid-template-columns:56px 1fr 1fr 1fr;">'+
@@ -1209,6 +1254,7 @@ function renderHome(){
 
   document.getElementById('home-stretch').classList.toggle('on', draft.fallingAsleep.stretch);
   document.getElementById('home-fascia').classList.toggle('on', draft.fallingAsleep.fasciaRelease);
+  renderHomeExerciseAlcohol();
 
   document.getElementById('home-supp-link').textContent = suppSummaryText();
   renderHomePrevRoutine();
@@ -1394,7 +1440,7 @@ function renderSettings(){
 /* ---------- init ---------- */
 loadDraft(todayStr());
 renderHome();
-attachLongPress(document.getElementById('home-routine-row'), openHomeRoutineDetail);
+attachTapAndLongPress(document.getElementById('home-routine-row'), openRoutineChecklist, openRoutineSelection);
 attachTapAndLongPress(document.getElementById('home-preset-area'), openPresetPicker, openPresetManager);
 </script>
 </body>
