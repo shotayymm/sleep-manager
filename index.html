@@ -31,7 +31,7 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
   -webkit-tap-highlight-color:transparent;
 }
-#app{max-width:420px; height:100%; height:100dvh; margin:0 auto; padding:16px 16px 8px; overflow-y:auto; overscroll-behavior:none; box-sizing:border-box;}
+#app{max-width:420px; height:100%; height:100dvh; margin:0 auto; padding:8px 16px 8px; overflow-y:auto; overscroll-behavior:none; box-sizing:border-box;}
 .view{display:none;}
 .view.active{display:block;}
 .card{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin-bottom:0;}
@@ -103,7 +103,7 @@ button:active{transform:scale(0.98);}
 table.info{width:100%; font-size:13px; border-collapse:collapse;}
 table.info td{padding:4px 0; color:var(--text-secondary);}
 table.info td:last-child{text-align:right; color:var(--text-primary);}
-.hist-row{cursor:pointer; padding:10px 0; border-bottom:1px solid var(--border); position:relative;}
+.hist-row{cursor:pointer; padding:6px 0; border-bottom:1px solid var(--border); position:relative;}
 .hist-track{flex:1; position:relative; height:14px; background:var(--surface-1); border:1px solid var(--border); border-radius:7px;}
 .hist-bar{position:absolute; height:100%; background:var(--bg-accent); border-radius:7px;}
 .legend{display:flex; gap:12px; flex-wrap:wrap; font-size:11px; color:var(--text-secondary); margin-bottom:10px;}
@@ -116,13 +116,13 @@ table.info td:last-child{text-align:right; color:var(--text-primary);}
 
   <!-- ===== HOME ===== -->
   <div class="view active" id="view-home">
-    <div class="row" style="margin-bottom:2px;">
-      <span onclick="homeShiftDay(-1)" style="cursor:pointer; font-size:18px; color:var(--text-muted); padding:14px 18px;">‹</span>
+    <div class="row card" style="padding:2px 14px;">
+      <span onclick="homeShiftDay(-1)" style="cursor:pointer; font-size:18px; color:var(--text-muted); padding:8px 18px;">‹</span>
       <span id="home-date" onclick="openDatePicker()" style="cursor:pointer; font-size:14px; font-weight:500;"></span>
-      <span onclick="homeShiftDay(1)" style="cursor:pointer; font-size:18px; color:var(--text-muted); padding:14px 18px;">›</span>
+      <span onclick="homeShiftDay(1)" style="cursor:pointer; font-size:18px; color:var(--text-muted); padding:8px 18px;">›</span>
     </div>
-    <div class="row" style="justify-content:center; margin-bottom:8px;">
-      <span id="home-preset-area" style="cursor:pointer; font-size:12px; color:var(--text-accent); padding:8px 14px;">プリセット ▾</span>
+    <div class="row card" style="justify-content:center; padding:2px 14px; margin-bottom:8px;">
+      <span id="home-preset-area" style="cursor:pointer; font-size:12px; color:var(--text-accent); padding:6px 14px;">プリセット ▾</span>
     </div>
 
     <div class="card">
@@ -320,7 +320,7 @@ function showView(name){
 let draft = null;
 let draftDate = null;
 
-function blankDaytime(){ return {sleepiness:0, activity:2}; }
+function blankDaytime(){ return {sleepiness:null, activity:null}; }
 function newDraft(dateStr){
   const preset = DB.presets.find(p=>p.isDefault);
   const bedtime = preset ? preset.bedtime : '23:30';
@@ -332,9 +332,9 @@ function newDraft(dateStr){
   return {
     date:dateStr,
     presetId: preset ? preset.id : null,
-    sleep:{ plan:{bedtime, wake}, actual:{bedtime, wake} },
+    sleep:{ plan:{bedtime, wake}, actual:{bedtime:null, wake:null} },
     powerNaps:[0,1,2].map(i => napPlan[i] ? {plan:{...napPlan[i]}, actual:{done:false}} : {plan:null, actual:{done:false}}),
-    wakingBehavior:{ secondSleep:false, alarmType:'スマホアラーム', alertnessLevel:3,
+    wakingBehavior:{ secondSleep:false, alarmType:null, alertnessLevel:0,
       routinePlanIds: [...routineIds], routineProgress:{} },
     fallingAsleep:{ fasciaRelease:false, stretch:false, alcohol:{consumed:false, beerCount:0}, carbsG:0 },
     midSleepWake:false,
@@ -699,6 +699,8 @@ function deleteSupplement(kind,name){
 const ALERTNESS_LABELS=['','かなり眠い','眠い','普通','すっきり','完全覚醒'];
 const ACTIVITY_LABELS=['やる気なし','少しだるい','普通','活動的','なんでもできそう'];
 const SLEEPINESS_LABELS=['なし','少し','強い'];
+// null(未選択)なら薄いグレーの「ー」表示、値があればラベルをそのまま返す
+function daytimeLabelHtml(val, labels){ return val===null ? '<span class="blank">ー</span>' : labels[val]; }
 
 function homeShiftDay(delta){
   loadDraft(addDays(draftDate, delta));
@@ -736,7 +738,8 @@ function homeEditPlanTime(which){
 }
 function homeEditActualTime(which){
   const cur = which==='bed' ? draft.sleep.actual.bedtime : draft.sleep.actual.wake;
-  openTimePicker(cur, v=>{
+  const planFallback = which==='bed' ? draft.sleep.plan.bedtime : draft.sleep.plan.wake;
+  openTimePicker(cur || planFallback, v=>{
     if(which==='bed') draft.sleep.actual.bedtime=v; else draft.sleep.actual.wake=v;
     saveCurrentDraft(); renderHome();
   });
@@ -797,12 +800,14 @@ function openNapActualEditor(i, timeOverride, durOverride){
 }
 function renderHomeTimeline(){
   let rows = '';
-  rows += tlRow('就寝', draft.sleep.plan.bedtime, "homeEditPlanTime('bed')", draft.sleep.actual.bedtime, "homeEditActualTime('bed')");
-  rows += tlRow('起床', draft.sleep.plan.wake, "homeEditPlanTime('wake')", draft.sleep.actual.wake, "homeEditActualTime('wake')");
+  const bedActual = draft.sleep.actual.bedtime || '<span class="blank">ー</span>';
+  const wakeActual = draft.sleep.actual.wake || '<span class="blank">ー</span>';
+  rows += tlRow('就寝', draft.sleep.plan.bedtime, "homeEditPlanTime('bed')", bedActual, "homeEditActualTime('bed')");
+  rows += tlRow('起床', draft.sleep.plan.wake, "homeEditPlanTime('wake')", wakeActual, "homeEditActualTime('wake')");
   const napTags=['PN①','PN②','PN③'];
   draft.powerNaps.forEach((slot,i)=>{
-    const planHtml = slot.plan ? slot.plan.time : '<span class="blank">－未定－</span>';
-    const actualHtml = slot.actual.done ? (slot.actual.time+'・'+slot.actual.durationMin+'分') : '<span class="blank">－未実施－</span>';
+    const planHtml = slot.plan ? slot.plan.time : '<span class="blank">ー</span>';
+    const actualHtml = slot.actual.done ? (slot.actual.time+'・'+slot.actual.durationMin+'分') : '<span class="blank">ー</span>';
     rows += tlRow(napTags[i], planHtml, 'openNapPlanEditor('+i+')', actualHtml, 'openNapActualEditor('+i+')');
   });
   document.getElementById('home-timeline').innerHTML =
@@ -1223,21 +1228,26 @@ function renderHome(){
   document.getElementById('home-secondsleep').checked = draft.wakingBehavior.secondSleep;
   document.getElementById('home-midwake').onchange=e=>{ draft.midSleepWake=e.target.checked; saveCurrentDraft(); };
   document.getElementById('home-secondsleep').onchange=e=>{ draft.wakingBehavior.secondSleep=e.target.checked; saveCurrentDraft(); };
-  document.getElementById('home-alertness-val').textContent = ALERTNESS_LABELS[draft.wakingBehavior.alertnessLevel] || '－ 選択 －';
+  const alertLabel = ALERTNESS_LABELS[draft.wakingBehavior.alertnessLevel];
+  const alertEl = document.getElementById('home-alertness-val');
+  alertEl.textContent = alertLabel || 'ー';
+  alertEl.classList.toggle('blank', !alertLabel);
   document.getElementById('home-routine-check').checked = isRoutineFullyDone();
   document.getElementById('home-routine-label').textContent = homeRoutineLabel();
-  document.getElementById('home-alarm-val').textContent = draft.wakingBehavior.alarmType;
+  const alarmEl = document.getElementById('home-alarm-val');
+  alarmEl.textContent = draft.wakingBehavior.alarmType || 'ー';
+  alarmEl.classList.toggle('blank', !draft.wakingBehavior.alarmType);
 
   const periods=[['morning','午前'],['afternoon','午後'],['evening','夕方以降']];
   const highlightKey = (draftDate===todayStr()) ? currentPeriodKey() : null;
   const headerRow = '<span></span>'+periods.map(([key,label])=>'<span class="tl-head"><span'+(key===highlightKey?' style="color:var(--text-accent); font-weight:500;"':'')+'>'+label+'</span></span>').join('');
   const activityRow = '<div class="tl-row"><span class="tag">活動度</span>'+
     periods.map(([key])=>
-      '<span onclick="openDaytimeCell(\'activity\',\''+key+'\')" style="cursor:pointer; font-size:11px; line-height:1.3; text-align:center;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+ACTIVITY_LABELS[draft.daytime[key].activity]+'</span>'
+      '<span onclick="openDaytimeCell(\'activity\',\''+key+'\')" style="cursor:pointer; font-size:11px; line-height:1.3; text-align:center;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+daytimeLabelHtml(draft.daytime[key].activity, ACTIVITY_LABELS)+'</span>'
     ).join('')+'</div>';
   const sleepinessRow = '<div class="tl-row"><span class="tag">眠気</span>'+
     periods.map(([key])=>
-      '<span onclick="openDaytimeCell(\'sleepiness\',\''+key+'\')" style="cursor:pointer; font-size:11px; line-height:1.3; text-align:center;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+SLEEPINESS_LABELS[draft.daytime[key].sleepiness]+'</span>'
+      '<span onclick="openDaytimeCell(\'sleepiness\',\''+key+'\')" style="cursor:pointer; font-size:11px; line-height:1.3; text-align:center;'+(key===highlightKey?' background:var(--bg-accent);':'')+'">'+daytimeLabelHtml(draft.daytime[key].sleepiness, SLEEPINESS_LABELS)+'</span>'
     ).join('')+'</div>';
   document.getElementById('home-daytime-block').innerHTML =
     '<div class="tl-grid" style="grid-template-columns:56px 1fr 1fr 1fr;">'+
@@ -1271,7 +1281,7 @@ function renderHistory(){
   const list = document.getElementById('history-list');
   if(dates.length===0){ list.innerHTML='<p class="empty">まだ記録がありません</p>'; return; }
   list.innerHTML='';
-  const rowH=64;
+  const rowH=52;
   const points={alert:[], act:[]};
   dates.forEach((dateStr,i)=>{
     const rec=DB.records[dateStr];
@@ -1338,18 +1348,18 @@ function renderDetail(dateStr){
   const suppNight = rec.supplements.nightTaken.join('、')||'なし';
   document.getElementById('detail-body').innerHTML =
     '<div class="card"><p class="label">睡眠</p><table class="info">'+
-    '<tr><td>就寝 → 起床</td><td>'+rec.sleep.actual.bedtime+' → '+rec.sleep.actual.wake+'</td></tr>'+
+    '<tr><td>就寝 → 起床</td><td>'+(rec.sleep.actual.bedtime||'ー')+' → '+(rec.sleep.actual.wake||'ー')+'</td></tr>'+
     '<tr><td>パワーナップ</td><td>'+napTxt+'</td></tr>'+
     '<tr><td>中途覚醒</td><td>'+(rec.midSleepWake?'あり':'なし')+'</td></tr>'+
     '<tr><td>二度寝</td><td>'+(rec.wakingBehavior.secondSleep?'あり':'なし')+'</td></tr>'+
-    '<tr><td>アラーム</td><td>'+rec.wakingBehavior.alarmType+'</td></tr>'+
+    '<tr><td>アラーム</td><td>'+(rec.wakingBehavior.alarmType||'ー')+'</td></tr>'+
     '<tr><td>寝起きルーティン</td><td>'+routineTxt+'</td></tr>'+
     '</table></div>'+
     '<div class="card"><p class="label">体調</p><table class="info">'+
-    '<tr><td>覚醒度</td><td>'+ALERTNESS_LABELS[rec.wakingBehavior.alertnessLevel]+'</td></tr>'+
-    '<tr><td>午前</td><td>眠気'+SLEEPINESS_LABELS[rec.daytime.morning.sleepiness]+'・活動'+ACTIVITY_LABELS[rec.daytime.morning.activity]+'</td></tr>'+
-    '<tr><td>午後</td><td>眠気'+SLEEPINESS_LABELS[rec.daytime.afternoon.sleepiness]+'・活動'+ACTIVITY_LABELS[rec.daytime.afternoon.activity]+'</td></tr>'+
-    '<tr><td>夕方以降</td><td>眠気'+SLEEPINESS_LABELS[rec.daytime.evening.sleepiness]+'・活動'+ACTIVITY_LABELS[rec.daytime.evening.activity]+'</td></tr>'+
+    '<tr><td>覚醒度</td><td>'+(ALERTNESS_LABELS[rec.wakingBehavior.alertnessLevel]||'ー')+'</td></tr>'+
+    '<tr><td>午前</td><td>眠気'+daytimeLabelHtml(rec.daytime.morning.sleepiness, SLEEPINESS_LABELS)+'・活動'+daytimeLabelHtml(rec.daytime.morning.activity, ACTIVITY_LABELS)+'</td></tr>'+
+    '<tr><td>午後</td><td>眠気'+daytimeLabelHtml(rec.daytime.afternoon.sleepiness, SLEEPINESS_LABELS)+'・活動'+daytimeLabelHtml(rec.daytime.afternoon.activity, ACTIVITY_LABELS)+'</td></tr>'+
+    '<tr><td>夕方以降</td><td>眠気'+daytimeLabelHtml(rec.daytime.evening.sleepiness, SLEEPINESS_LABELS)+'・活動'+daytimeLabelHtml(rec.daytime.evening.activity, ACTIVITY_LABELS)+'</td></tr>'+
     '</table></div>'+
     '<div class="card"><p class="label">生活習慣</p><table class="info">'+
     '<tr><td>筋膜リリース</td><td>'+(rec.fallingAsleep.fasciaRelease?'やった':'やってない')+'</td></tr>'+
